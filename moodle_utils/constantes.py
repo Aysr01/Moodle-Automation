@@ -1,12 +1,11 @@
-
+import pathlib
 import re
+import os
 
 
 TD_RE = re.compile("td|travaux dirigés|exercices|série", re.IGNORECASE)
 TP_RE = re.compile("tp|travaux pratique", re.IGNORECASE)
-EXT_RE = re.compile(r"\.[a-z0-9]+")      # Extension of the file
 MOODLE_URL = "http://m.inpt.ac.ma/login/index.php"
-PDF = "http://m.inpt.ac.ma/theme/image.php/clean/core/1614806513/f/pdf-24"
 
 
 RAW_DATA = (
@@ -21,3 +20,10 @@ REQUEST_URL = (
         "sesskey={}&"
         "info=core_course_get_enrolled_courses_by_timeline_classification"
 )   # This is a template string that will be formatted with the sesskey
+
+
+SAVING_PATH = pathlib.Path.home() / "Downloads" / "Moodle"
+os.makedirs(SAVING_PATH, exist_ok=True)
+
+# Download all files from the moodle, even the old ones
+DOWNLOAD_ALL = False
