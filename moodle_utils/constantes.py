@@ -3,8 +3,6 @@ import re
 import os
 
 
-TD_RE = re.compile("td|travaux dirigés|exercices|série", re.IGNORECASE)
-TP_RE = re.compile("tp|travaux pratique", re.IGNORECASE)
 MOODLE_URL = "http://m.inpt.ac.ma/login/index.php"
 
 

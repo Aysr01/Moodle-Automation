@@ -1,13 +1,17 @@
 import requests
 import os
 from moodle_utils.constantes import MOODLE_URL, REQUEST_URL, RAW_DATA, SAVING_PATH, DOWNLOAD_ALL
+from moodle_utils.saver import Saver
 from bs4 import BeautifulSoup
 import logging
 import pandas as pd
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"   
+)
 
-os.environ['USER_NAME'] = "sarab.ayoub"
-os.environ['PASSWORD'] = "ayoubsarab2002@"
+logger = logging.getLogger(__name__)
 
 
 class MoodleAPI(requests.Session):
@@ -15,12 +19,13 @@ class MoodleAPI(requests.Session):
     def __init__(self) -> None:
         self.user_name = os.environ['USER_NAME']
         self.password = os.environ['PASSWORD']
+        self.saver = Saver()
         super().__init__()
 
     def get_login_token(self):
         response = self.get(MOODLE_URL)
         if response.status_code != 200:
-            logging.error(
+            logger.error(
                 f"Error while getting the login page: {response.status_code}"
             )
             return None
@@ -33,21 +38,25 @@ class MoodleAPI(requests.Session):
             'password': self.password,
             'logintoken': self.get_login_token(),
         }
-        response = self.post(
-            MOODLE_URL,
-            data=payload
-        )
+        try:
+            response = self.post(
+                MOODLE_URL,
+                data=payload
+            )
+        except Exception as e:
+            logger.error(f"Error while logger in")
+            return None
         return response
 
     def get_sesskey(self, response):
         if (response.status_code != 200):
-            raise Exception(f"Error while logging in, status code: {response.status_code}")
+            raise Exception(f"Error while logger in, status code: {response.status_code}")
         soup = BeautifulSoup(response.text, "html.parser")
         page_title = soup.find("title").text
         if page_title.__contains__("moodle.inpt.ac.ma"):
             message = "make sure your credentials are correct"
             raise Exception(
-                f"Error while logging in: {message}"
+                f"Error while logger in: {message}"
             )
         soup = BeautifulSoup(response.text, "html.parser")
         return (soup.find("script", {"type": "text/javascript"})
@@ -89,18 +98,22 @@ class MoodleAPI(requests.Session):
                 (df["enddate"] == max) | 
                 (df["fullname"].str.contains("AFFICHAGE", case=False))
             ]
-        current_courses_urls = df["viewurl"].values
-        ajusted_urls = list(map(lambda x: x + "&lang=en", current_courses_urls))  # force the language to be english
-        return ajusted_urls
+        df["viewurl"] = df["viewurl"] + "&lang=en"   # force the language to be english
+        desired_courses_info = df[["viewurl", "fullname"]].values 
+        return desired_courses_info
 
-    def get_lectures(self, course_url, cls="activityinstance"):
+    def get_lectures(self, course_info, cls="activityinstance"):
+        course_url = course_info[0]
+        course_name = (
+            course_info[1].encode("iso-8859-1")
+                          .decode('utf-8')
+                          .strip(" ")
+        )                                     
         response = self.get(course_url)
         if response.status_code != 200:
             raise Exception(f"Error while getting the course page: {response.status_code}")
         soup = BeautifulSoup(response.text, "html.parser")
-        course_name = soup.find(class_="page-header-headings").h1.text.strip()
         elements = soup.find_all(class_=cls)
-        
         links_and_types = [
             (
             element.find("a")["href"],
@@ -111,17 +124,17 @@ class MoodleAPI(requests.Session):
         return course_name, links_and_types
     
     def download_file(self, url, download_path):
-        response = self.get(url)
+        response = self.get(url, stream=True)
         if response.status_code != 200:
             raise Exception(f"Error while getting the file: {response.status_code}")
         file_name = (response.headers["Content-Disposition"]
                              .split("filename=")[1]
                              .strip('"'))
-        with open(os.path.join(download_path, file_name), "wb") as file:
-            file.write(response.content)
-        
+        self.saver.save_file(response, download_path, file_name)
+        self.saver.notify(file_name)
+
     def download_folder(self, folder_url, path, folder_name, fcls="fp-filename-icon"):
-        course_name, lectures = self.get_lectures(folder_url, cls = fcls)
+        _, lectures = self.get_lectures(folder_url, cls = fcls)
         if len(lectures) == 0:
             return None
         os.makedirs(os.path.join(path, folder_name), exist_ok=True)
