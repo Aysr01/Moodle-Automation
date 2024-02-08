@@ -20,6 +20,7 @@ class MoodleAPI(requests.Session):
         self.user_name = os.environ['USER_NAME']
         self.password = os.environ['PASSWORD']
         self.saver = Saver()
+        self.consulted_courses = self.saver.get_consulted_courses()
         super().__init__()
 
     def get_login_token(self):
@@ -104,11 +105,8 @@ class MoodleAPI(requests.Session):
 
     def get_lectures(self, course_info, cls="activityinstance"):
         course_url = course_info[0]
-        course_name = (
-            course_info[1].encode("iso-8859-1")
-                          .decode('utf-8')
-                          .strip(" ")
-        )                                     
+        course_info[1] = course_info[1].strip(" ")
+        course_name = self.saver.to_valid_name(course_info[1])                              
         response = self.get(course_url)
         if response.status_code != 200:
             raise Exception(f"Error while getting the course page: {response.status_code}")
@@ -123,43 +121,67 @@ class MoodleAPI(requests.Session):
         ]
         return course_name, links_and_types
     
-    def download_file(self, url, download_path):
+    def download_file(self, url, download_path, lecture_name, course_name):
+        if not self.saver.is_not_consulted(self.consulted_courses[course_name], url):
+            return None
         response = self.get(url, stream=True)
         if response.status_code != 200:
             raise Exception(f"Error while getting the file: {response.status_code}")
-        file_name = (response.headers["Content-Disposition"]
-                             .split("filename=")[1]
-                             .strip('"'))
-        self.saver.save_file(response, download_path, file_name)
-        self.saver.notify(file_name)
+        try:
+            file_name = (response.headers["Content-Disposition"]
+                                .split("filename=")[1]
+                                .strip('"'))
+            file_name = self.saver.to_valid_name(file_name)
+            self.saver.save_file(response, download_path, file_name)
+        except:
+            logger.error(f"Error while saving the file {lecture_name} in {download_path}")
+            return None
+        else:
+            self.consulted_courses[course_name][url] = file_name
+            self.saver.save_consulted_courses(self.consulted_courses)
+            self.saver.notify(file_name)
+            logger.info(
+                (
+                    f"{file_name} has been downloaded successfully "
+                    f"in {download_path}"
+                )
+            )
 
-    def download_folder(self, folder_url, path, folder_name, fcls="fp-filename-icon"):
-        _, lectures = self.get_lectures(folder_url, cls = fcls)
+    def download_folder(self, folder_url, path, folder_name, course_name, fcls="fp-filename-icon"):
+        _, lectures = self.get_lectures([folder_url, folder_name], cls = fcls)
         if len(lectures) == 0:
             return None
-        os.makedirs(os.path.join(path, folder_name), exist_ok=True)
+        folder_path = os.path.join(path, folder_name)
+        os.makedirs(folder_path, exist_ok=True)
         for lecture in lectures:
             lecture_link = lecture[0]
-            self.download_file(lecture_link, os.path.join(path, folder_name))
+            self.download_file(lecture_link, folder_path, folder_name, course_name)
 
-    def download_assignement(self, Assignement_url, path, Assignement_name):
+    def download_assignement(self, Assignement_url, path, Assignement_name, course_name):
         acls = "fileuploadsubmission"
-        self.download_folder(Assignement_url, path, Assignement_name, acls)
+        self.download_folder(Assignement_url, path, Assignement_name, course_name, acls)
 
     def download_all_content(self, course_url):
         course_name, lectures = self.get_lectures(course_url)
-        os.makedirs(os.path.join(SAVING_PATH, course_name), exist_ok=True)
+        course_path = os.path.join(SAVING_PATH, course_name)
+        os.makedirs(course_path, exist_ok=True)
+        if not self.consulted_courses.get(course_name, None):
+            self.consulted_courses[course_name] = {}
         for lecture in lectures:
             lecture_link = lecture[0]
             lecture_name = lecture[1].text.split("span")[0].strip(" ")
-            lecture_type = lecture[1].span.text
-            path = SAVING_PATH / course_name
+            lecture_name = self.saver.to_valid_name(lecture_name)
+            try:
+                lecture_type = lecture[1].span.text
+            except:
+                logger.error(f"Error while getting the type of {lecture_name}")
             if "Folder" in lecture_type:
-                self.download_folder(lecture_link, path, lecture_name)
+                self.download_folder(lecture_link, course_path, lecture_name, course_name)
             elif "Assignment" in lecture_type:
-                self.download_assignement(lecture_link, path, lecture_name)
-            else:
-                self.download_file(lecture_link, path)
+                self.download_assignement(lecture_link, course_path, lecture_name, course_name)
+            elif "File" in lecture_type:
+                self.download_file(lecture_link, course_path, lecture_name, course_name)
+                    
 
 
 

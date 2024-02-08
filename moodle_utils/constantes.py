@@ -24,4 +24,4 @@ SAVING_PATH = pathlib.Path.home() / "Downloads" / "Moodle"
 os.makedirs(SAVING_PATH, exist_ok=True)
 
 # Download all files from the moodle, even the old ones
-DOWNLOAD_ALL = False
+DOWNLOAD_ALL = True
