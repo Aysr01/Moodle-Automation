@@ -11,6 +11,7 @@ class Saver:
         path = os.path.join("consulted_courses\consulted_courses.json")
     ) -> None:
         # The path of the file that contains the consulted courses
+        os.makedirs("consulted_courses", exist_ok=True)
         self.json_file_path = path
     
     def to_utf8(self, name):
@@ -38,7 +39,10 @@ class Saver:
         if not os.path.isfile(self.json_file_path):
             with open(self.json_file_path, "w") as file:
                 json.dump({}, file)
-        return json.load(open(self.json_file_path))
+        try:
+            return json.load(open(self.json_file_path))
+        except:
+            return {}
     
     def is_not_consulted(self, consulted_lectures, lecture_key):
         is_consulted = consulted_lectures.get(lecture_key, None)
