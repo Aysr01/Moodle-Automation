@@ -29,4 +29,6 @@ jobs:
       with:
         python-version: "3.10"
     - name: Integration Test
-      run: python3 main.py
+      run: |
+        pip install -r requirements.txt
+        python main.py
