@@ -1,5 +1,5 @@
-from plyer import notification
-from playsound import playsound
+# from plyer import notification
+# from playsound import playsound
 import os
 import json
 import re
@@ -26,14 +26,14 @@ class Saver:
         new_name = self.to_utf8(new_name)
         return new_name
 
-    def notify(self, file_name):
-        notification.notify(
-            title = 'Attention !!!',
-            message = f"The file {file_name} has been downloaded successfully",
-            app_icon = os.path.join("images/moodle.ico"),
-            timeout = 10,
-        )
-        playsound(os.path.join('sounds/mixkit-arcade-magic-notification-2342.wav'))
+    # def notify(self, file_name):
+    #     notification.notify(
+    #         title = 'Attention !!!',
+    #         message = f"The file {file_name} has been downloaded successfully",
+    #         app_icon = os.path.join("images/moodle.ico"),
+    #         timeout = 10,
+    #     )
+    #     playsound(os.path.join('sounds/mixkit-arcade-magic-notification-2342.wav'))
 
     def get_consulted_courses(self):
         if not os.path.isfile(self.json_file_path):

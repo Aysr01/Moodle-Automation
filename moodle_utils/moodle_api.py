@@ -139,7 +139,7 @@ class MoodleAPI(requests.Session):
         else:
             self.consulted_courses[course_name][url] = file_name
             self.saver.save_consulted_courses(self.consulted_courses)
-            self.saver.notify(file_name)
+            # self.saver.notify(file_name)
             logger.info(
                 (
                     f"{file_name} has been downloaded successfully "
